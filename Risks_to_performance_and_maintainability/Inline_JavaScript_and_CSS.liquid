@@ -1,0 +1,46 @@
+{% comment %} BAD: AI-generated — inline script and style {% endcomment %}
+{% schema %}
+{
+  "name": "Testimonial Slider",
+  "tag": "section"
+}
+{% endschema %}
+
+<style>
+  .testimonial-slider { display: flex; overflow: hidden; }
+  .testimonial-slide { min-width: 100%; transition: transform 0.5s; }
+</style>
+
+<div class="testimonial-slider" id="testimonialSlider">
+  {% for block in section.blocks %}
+    <div class="testimonial-slide">
+      <p>"{{ block.settings.quote }}"</p>
+      <span>— {{ block.settings.author }}</span>
+    </div>
+  {% endfor %}
+</div>
+
+<script>
+  let current = 0;
+  const slides = document.querySelectorAll('.testimonial-slide');
+  setInterval(() => {
+    current = (current + 1) % slides.length;
+    document.getElementById('testimonialSlider').style.transform = `translateX(-${current * 100}%)`;
+  }, 4000);
+</script>
+
+--------
+
+{% comment %} CORRECT: External assets, deferred loading {% endcomment %}
+{{ 'section-testimonial-slider.css' | asset_url | stylesheet_tag }}
+
+<div class="testimonial-slider" id="testimonialSlider">
+  {% for block in section.blocks %}
+    <div class="testimonial-slide" {{ block.shopify_attributes }}>
+      <p>"{{ block.settings.quote }}"</p>
+      <span>— {{ block.settings.author }}</span>
+    </div>
+  {% endfor %}
+</div>
+
+<script src="{{ 'section-testimonial-slider.js' | asset_url }}" defer></script>
