@@ -1,0 +1,29 @@
+{% comment %} BAD: AI-generated — no limit, no pagination {% endcomment %}
+{% for product in collections['summer-sale'].products %}
+  <div class="promo-card">
+    <img src="{{ product.featured_image | img_url: 'master' }}" alt="{{ product.title }}">
+    <h3>{{ product.title }}</h3>
+    <p>{{ product.price | money }}</p>
+  </div>
+{% endfor %}
+------
+{% comment %} CORRECT: Paginated, limited, responsive images {% endcomment %}
+{% paginate collections['summer-sale'].products by 12 %}
+  {% for product in collections['summer-sale'].products %}
+    <div class="promo-card">
+      <img
+        srcset="{{ product.featured_image | image_url: width: 400 }} 400w,
+               {{ product.featured_image | image_url: width: 800 }} 800w"
+        sizes="(max-width: 768px) 400px, 800px"
+        src="{{ product.featured_image | image_url: width: 800 }}"
+        alt="{{ product.title }}"
+        loading="lazy"
+        width="800"
+        height="800"
+      >
+      <h3>{{ product.title }}</h3>
+      <p>{{ product.price | money }}</p>
+    </div>
+  {% endfor %}
+  {{ paginate | default_pagination }}
+{% endpaginate %}
