@@ -1,0 +1,66 @@
+# .github/workflows/theme-qa.yml
+name: Shopify Theme QA
+
+on:
+  pull_request:
+    branches: [main, staging]
+
+jobs:
+  theme-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Shopify CLI
+        run: npm install -g @shopify/cli @shopify/theme
+
+      - name: Run Theme Check (Liquid Linting)
+        run: shopify theme check --fail-level error
+        # Catches: Liquid syntax errors, deprecated filters,
+        # missing asset_url usage, img_url without size params,
+        # schema JSON validation errors
+
+      - name: Check for Inline Script/Style Blocks
+        run: |
+          VIOLATIONS=$(grep -rn '<script>' sections/ --include="*.liquid" | grep -v 'asset_url' | grep -v 'src=' || true)
+          if [ -n "$VIOLATIONS" ]; then
+            echo "❌ Inline <script> blocks found in section files:"
+            echo "$VIOLATIONS"
+            echo "Move scripts to assets/ and load via asset_url with defer."
+            exit 1
+          fi
+
+      - name: Check for Unscoped Collection Loops
+        run: |
+          VIOLATIONS=$(grep -rn "for product in collections\[" sections/ --include="*.liquid" | grep -v "limit:" | grep -v "paginate" || true)
+          if [ -n "$VIOLATIONS" ]; then
+            echo "⚠️ Collection loops without limit or paginate found:"
+            echo "$VIOLATIONS"
+            echo "Add a limit filter or wrap in paginate tags."
+            exit 1
+          fi
+
+      - name: Validate Section Schema JSON
+        run: |
+          for file in sections/*.liquid; do
+            SCHEMA=$(sed -n '/{% schema %}/,/{% endschema %}/p' "$file" | sed '1d;$d')
+            if [ -n "$SCHEMA" ]; then
+              echo "$SCHEMA" | python3 -m json.tool > /dev/null 2>&1
+              if [ $? -ne 0 ]; then
+                echo "❌ Invalid JSON schema in $file"
+                exit 1
+              fi
+            fi
+          done
+
+      - name: Schema Settings Count Check
+        run: |
+          for file in sections/*.liquid; do
+            SCHEMA=$(sed -n '/{% schema %}/,/{% endschema %}/p' "$file" | sed '1d;$d')
+            if [ -n "$SCHEMA" ]; then
+              COUNT=$(echo "$SCHEMA" | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d.get('settings',[])))" 2>/dev/null || echo "0")
+              if [ "$COUNT" -gt 20 ]; then
+                echo "⚠️ $file has $COUNT schema settings. Consider reducing to improve editor UX."
+              fi
+            fi
+          done
